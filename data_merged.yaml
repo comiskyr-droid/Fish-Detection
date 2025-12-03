@@ -1,0 +1,20 @@
+names:
+- AngelFish
+- BlueTang
+- ButterflyFish
+- ClownFish
+- GoldFish
+- Gourami
+- MorishIdol
+- PlatyFish
+- RibbonedSweetlips
+- ThreeStripedDamselfish
+- YellowCichlid
+- YellowTang
+- ZebraFish
+- JellyFish
+nc: 14
+path: merged_dataset
+test: test/images
+train: train/images
+val: valid/images
