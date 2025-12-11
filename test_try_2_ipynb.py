@@ -57,84 +57,246 @@ for d in dirs_to_make:
 
 # continued merging the dataset
 def merge_dataset(source_root, subset_name, is_jelly_dataset=False):
+
     """
+
     Copies images and labels from source to the merged directory.
+
     """
-    # Find the specific subset folder (train/valid/test)
+
     img_src = None
+
     lbl_src = None
 
-    # handles multiple paths
-    for root, dirs, files in os.walk(source_root):
-        if subset_name in dirs:
-            # more path stuff
-            sub_path = os.path.join(root, subset_name)
-            if 'images' in os.listdir(sub_path):
-                img_src = os.path.join(sub_path, 'images')
-                lbl_src = os.path.join(sub_path, 'labels')
+   
+
+    # First, try common structures
+
+    possible_paths = [
+
+        # Structure 1: root/subset_name/images
+
+        (os.path.join(source_root, subset_name, 'images'),
+
+         os.path.join(source_root, subset_name, 'labels')),
+
+        # Structure 2: root/images/subset_name
+
+        (os.path.join(source_root, 'images', subset_name),
+
+         os.path.join(source_root, 'labels', subset_name)),
+
+        # Structure 3: root/subset_name (direct)
+
+        (os.path.join(source_root, subset_name),
+
+         os.path.join(source_root, subset_name))
+
+    ]
+
+   
+
+    for img_path, lbl_path in possible_paths:
+
+        if os.path.exists(img_path):
+
+            img_src = img_path
+
+            if os.path.exists(lbl_path):
+
+                lbl_src = lbl_path
+
             else:
 
-                pass
+                # Try to find labels in a different location
 
-        if 'images' in dirs and subset_name in os.listdir(os.path.join(root, 'images')):
-             img_src = os.path.join(root, 'images', subset_name)
-             lbl_src = os.path.j/home/kalgaonp/Documents/chloe_ben_ryan/fish_projectoin(root, 'labels', subset_name)
+                for root, dirs, files in os.walk(source_root):
 
+                    if 'labels' in dirs:
 
-    if not img_src:
+                        lbl_src = os.path.join(root, 'labels')
 
-         img_src = os.path.join(source_root, subset_name, 'images')
-         lbl_src = os.path.join(source_root, subset_name, 'labels')
+                        if subset_name in os.listdir(lbl_src):
 
-    if not os.path.exists(img_src):
-        print("error specific image didn't work getting skipped")
+                            lbl_src = os.path.join(lbl_src, subset_name)
+
+                        break
+
+            break
+
+   
+
+    if not img_src or not os.path.exists(img_src):
+
+        print(f"Warning: Could not find {subset_name} images in {source_root}")
+
         return
 
+   
+
     # Destination paths
+
     img_dst = os.path.join(base_dir, subset_name, 'images')
+
     lbl_dst = os.path.join(base_dir, subset_name, 'labels')
+
+   
 
     print(f"   Processing {subset_name} from {'Jellyfish' if is_jelly_dataset else 'Fish'} dataset...")
 
+   
+
     files = [f for f in os.listdir(img_src) if f.endswith(('.jpg', '.jpeg', '.png'))]
 
+   
+
+    if not files:
+
+        print(f"   No images found in {img_src}")
+
+        return
+
+   
+
     count = 0
+
+    jellyfish_count = 0
+
+   
+
     for file in tqdm(files, desc=f"Merging {subset_name}", leave=False):
-        base_name = os.path.splitext(file)[0]#!pip install ultralytics kagglehub -q
+
+        base_name = os.path.splitext(file)[0]
+
         label_file = base_name + '.txt'
-        src_label_path = os.path.join(lbl_src, label_file)
 
-        if os.path.exists(src_label_path):
-            if is_jelly_dataset:
+        src_label_path = os.path.join(lbl_src, label_file) if lbl_src and os.path.exists(lbl_src) else None
 
+       
+
+        if is_jelly_dataset:
+
+            # For jellyfish dataset
+
+            prefix = "jelly_"
+
+            dst_img_name = prefix + file
+
+            dst_label_name = (prefix + label_file)
+
+           
+
+            # Always copy the image
+
+            shutil.copy(os.path.join(img_src, file), os.path.join(img_dst, dst_img_name))
+
+           
+
+            if src_label_path and os.path.exists(src_label_path):
 
                 with open(src_label_path, 'r') as f:
+
                     lines = f.readlines()
 
+               
+
                 new_lines = []
-                has_jelly = False
+
                 for line in lines:
+
                     parts = line.strip().split()
-                    cls_id = int(parts[0])
 
-                    if cls_id == 4:
-                        new_lines.append(f"13 {' '.join(parts[1:])}\n")
-                        has_jelly = True
+                    if len(parts) >= 5:
 
-                if has_jelly:
-                    # Save image with prefix to avoid overwrite
-                    shutil.copy(os.path.join(img_src, file), os.path.join(img_dst, f"jelly_{file}"))
-                    # Save new label
-                    with open(os.path.join(lbl_dst, f"jelly_{label_file}"), 'w') as f:
+                        cls_id = int(parts[0])
+
+                       
+
+                        # Remap ALL classes from jellyfish dataset
+
+                        # The jellyfish dataset has 8 classes, we need to offset them
+
+                        # Assuming jellyfish is class 0 in the source dataset
+
+                        if cls_id == 0:  # Jellyfish in source
+
+                            new_cls_id = 13  # Jellyfish in merged dataset (index 13)
+
+                            jellyfish_count += 1
+
+                        else:
+
+                            # Offset other classes to avoid conflicts with fish dataset
+
+                            new_cls_id = cls_id + 14  # Start from 14 to avoid overlap
+
+                       
+
+                        new_line = f"{new_cls_id} {' '.join(parts[1:])}\n"
+
+                        new_lines.append(new_lines)
+
+               
+
+                if new_lines:
+
+                    with open(os.path.join(lbl_dst, dst_label_name), 'w') as f:
+
                         f.writelines(new_lines)
-                    count += 1
-            else:
-                # take the main dataset and make a copy so they can be joined
-                shutil.copy(os.path.join(img_src, file), os.path.join(img_dst, file))
-                shutil.copy(src_label_path, os.path.join(lbl_dst, label_file))
-                count += 1
-    print(f"   -> Added {count} images.")
 
+                    count += 1
+
+                else:
+
+                    # Create empty label file if no valid annotations
+
+                    open(os.path.join(lbl_dst, dst_label_name), 'w').close()
+                    
+                    count += 1
+
+            else:
+
+                # Create empty label file if no label file exists
+                open(os.path.join(lbl_dst, dst_label_name), 'w').close()
+                count += 1
+
+        else:
+
+            # For regular fish dataset - copy as is
+
+            shutil.copy(os.path.join(img_src, file), os.path.join(img_dst, file))
+
+           
+
+            if src_label_path and os.path.exists(src_label_path):
+
+                shutil.copy(src_label_path, os.path.join(lbl_dst, label_file))
+
+                count += 1
+
+            else:
+
+                # Create empty label file if no label exists
+
+                open(os.path.join(lbl_dst, label_file), 'w').close()
+
+                count += 1
+
+   
+
+    if is_jelly_dataset:
+
+        print(f"   -> Added {count} images ({jellyfish_count} with jellyfish annotations).")
+
+    else:
+
+        print(f"   -> Added {count} images.")
+
+ 
+
+   
+
+ 
 # final merge
 
 for split in ['train', 'valid', 'test']:
@@ -171,7 +333,7 @@ model = YOLO('yolo11n.pt')
 
 results = model.train(
     data=yaml_path,
-    epochs=1,
+    epochs=40,
     imgsz=640,
     batch=16,
     project='/home/kalgaonp/Documents/chloe_ben_ryan/fish_project',
