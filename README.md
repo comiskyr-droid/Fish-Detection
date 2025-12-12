@@ -60,8 +60,7 @@ python test_try_2_ipynb
 ## Known Issues or Limitations
 
 -  Currently isn't able to utilize the jellyfish class
-- When attempting to merge the two datasets, the jellyfish images don't show up in the confusion matrix    
--   Issue 2
+- When attempting to merge the two datasets, the jellyfish images don't show up in the confusion matrix  
 
 ------------------------------------------------------------------------
 
